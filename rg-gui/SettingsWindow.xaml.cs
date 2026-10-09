@@ -16,6 +16,8 @@ namespace rg_gui
         public int MaxSearchTerms { get; set; }
         public bool Multicolor { get; set; }
         public int MaxLineHighlights { get; set; }
+        public int ContextLinesBefore { get; set; }
+        public int ContextLinesAfter { get; set; }
 
         private string _fileViewerPath;
 
@@ -101,6 +103,18 @@ namespace rg_gui
         {
             var input = txtMaxLineHighlights.Text;
             txtMaxLineHighlights.Text = new string(input.Where(c => char.IsDigit(c)).ToArray());
+        }
+
+        private void txtContextLinesBefore_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            var input = txtContextLinesBefore.Text;
+            txtContextLinesBefore.Text = new string(input.Where(c => char.IsDigit(c)).ToArray());
+        }
+
+        private void txtContextLinesAfter_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            var input = txtContextLinesAfter.Text;
+            txtContextLinesAfter.Text = new string(input.Where(c => char.IsDigit(c)).ToArray());
         }
 
         protected void OnPropertyChanged([CallerMemberName] string? name = null)

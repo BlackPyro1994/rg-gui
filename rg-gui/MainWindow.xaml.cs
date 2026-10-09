@@ -67,6 +67,12 @@ namespace rg_gui
         private const int DEFAULT_MAXLINEHIGHLIGHTS = 100;
         private int m_maxLineHighlights = DEFAULT_MAXLINEHIGHLIGHTS;
 
+        private const int DEFAULT_CONTEXTLINESBEFORE = 2;
+        private int m_contextLinesBefore = DEFAULT_CONTEXTLINESBEFORE;
+
+        private const int DEFAULT_CONTEXTLINESAFTER = 2;
+        private int m_contextLinesAfter = DEFAULT_CONTEXTLINESAFTER;
+
         private string m_fileViewerPath;
         private string m_fileViewerArgs;
 
@@ -180,6 +186,9 @@ namespace rg_gui
 
             m_maxLineHighlights = int.TryParse(config.AppSettings.Settings["MaxLineHighlights"]?.Value, out var maxLineHighlights) ? maxLineHighlights : DEFAULT_MAXLINEHIGHLIGHTS;
 
+            m_contextLinesBefore = int.TryParse(config.AppSettings.Settings["ContextLinesBefore"]?.Value, out var contextLinesBefore) && contextLinesBefore >= 0 ? contextLinesBefore : DEFAULT_CONTEXTLINESBEFORE;
+            m_contextLinesAfter = int.TryParse(config.AppSettings.Settings["ContextLinesAfter"]?.Value, out var contextLinesAfter) && contextLinesAfter >= 0 ? contextLinesAfter : DEFAULT_CONTEXTLINESAFTER;
+
             m_ripGrepWrapper = new RipGrepWrapper(ripgrepPath);
             m_ripGrepWrapper.FileFound += OnFileAdded;
 
@@ -244,6 +253,8 @@ namespace rg_gui
             SetConfigValue(config, "Theme", m_currentTheme.ToString());
             SetConfigValue(config, "MultipleHighlightColors", m_multipleHighlightColors.ToString());
             SetConfigValue(config, "MaxLineHighlights", m_maxLineHighlights.ToString());
+            SetConfigValue(config, "ContextLinesBefore", m_contextLinesBefore.ToString());
+            SetConfigValue(config, "ContextLinesAfter", m_contextLinesAfter.ToString());
 
             SetConfigValue(config, "FileViewerPath", m_fileViewerPath);
             SetConfigValue(config, "FileViewerArgs", m_fileViewerArgs);
@@ -484,6 +495,8 @@ namespace rg_gui
                 MaxSearchTerms = m_maxSearchTerms,
                 Multicolor = m_multipleHighlightColors,
                 MaxLineHighlights = m_maxLineHighlights,
+                ContextLinesBefore = m_contextLinesBefore,
+                ContextLinesAfter = m_contextLinesAfter,
                 FileViewerPath = m_fileViewerPath,
                 FileViewerArgs = m_fileViewerArgs
             };
@@ -495,6 +508,8 @@ namespace rg_gui
                 m_maxSearchTerms = settingsWindow.MaxSearchTerms;
                 m_multipleHighlightColors = settingsWindow.Multicolor;
                 m_maxLineHighlights = settingsWindow.MaxLineHighlights;
+                m_contextLinesBefore = settingsWindow.ContextLinesBefore;
+                m_contextLinesAfter = settingsWindow.ContextLinesAfter;
                 m_fileViewerPath = settingsWindow.FileViewerPath;
                 m_fileViewerArgs = settingsWindow.FileViewerArgs;
             }
