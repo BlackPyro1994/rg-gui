@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -85,17 +86,48 @@ namespace rg_gui
 
             public string Filename { get; }
 
-            // Null if the file's dates couldn't be read.
+            // e.g. ".txt", and the type Windows Explorer shows for it, e.g. "Text Document".
+            public string Extension { get; }
+
+            public string Type { get; }
+
+            // Null if the file's details couldn't be read.
+            public long? Size { get; }
+
             public DateTime? Modified { get; }
 
             public DateTime? Created { get; }
 
-            public FileSearchResult(string path, string filename, DateTime? modified = null, DateTime? created = null)
+            public string SizeText => FormatSize(Size);
+
+            public FileSearchResult(string path, string filename, long? size = null, DateTime? modified = null, DateTime? created = null)
             {
                 Path = path;
                 Filename = filename;
+                Extension = System.IO.Path.GetExtension(filename);
+                Type = FileTypeNames.Get(Extension);
+                Size = size;
                 Modified = modified;
                 Created = created;
+            }
+
+            private static string FormatSize(long? size)
+            {
+                if (size == null)
+                {
+                    return string.Empty;
+                }
+
+                string[] units = { "B", "KB", "MB", "GB", "TB" };
+                double value = size.Value;
+                var unit = 0;
+                while (value >= 1024 && unit < units.Length - 1)
+                {
+                    value /= 1024;
+                    unit++;
+                }
+
+                return unit == 0 ? $"{size} B" : $"{value:0.#} {units[unit]}";
             }
         }
 
@@ -187,6 +219,12 @@ namespace rg_gui
                 }
             }
 
+            var fileListColumns = config.AppSettings.Settings["FileListColumns"]?.Value;
+            if (!string.IsNullOrWhiteSpace(fileListColumns))
+            {
+                RestoreFileListColumns(fileListColumns);
+            }
+
             var fileListSort = config.AppSettings.Settings["FileListSort"]?.Value;
             if (!string.IsNullOrWhiteSpace(fileListSort))
             {
@@ -237,6 +275,85 @@ namespace rg_gui
 
             m_fileViewerPath = config.AppSettings.Settings["FileViewerPath"]?.Value ?? string.Empty;
             m_fileViewerArgs = config.AppSettings.Settings["FileViewerArgs"]?.Value ?? string.Empty;
+        }
+
+        // Restores the file list columns' order, visibility and width, saved as e.g. "Filename:True:Auto,Size:False:80".
+        private void RestoreFileListColumns(string fileListColumns)
+        {
+            var dataGridLengthConverter = new DataGridLengthConverter();
+            var columnSettings = new List<(DataGridColumn column, bool visible, DataGridLength width)>();
+            foreach (var item in fileListColumns.Split(','))
+            {
+                var parts = item.Split(':');
+                var column = parts.Length == 3 ? gridFileResults.Columns.FirstOrDefault(x => x.SortMemberPath == parts[0]) : null;
+                if (column == null || columnSettings.Any(x => x.column == column) || !bool.TryParse(parts[1], out var visible))
+                {
+                    // Keep the default columns if the setting isn't valid.
+                    return;
+                }
+
+                try
+                {
+                    columnSettings.Add((column, visible, (DataGridLength)dataGridLengthConverter.ConvertFromInvariantString(parts[2])!));
+                }
+                catch (Exception)
+                {
+                    return;
+                }
+            }
+
+            // Columns missing from the setting (e.g. added in a later version) keep their defaults after these.
+            for (var i = 0; i < columnSettings.Count; i++)
+            {
+                var (column, visible, width) = columnSettings[i];
+                column.DisplayIndex = i;
+                column.Visibility = visible || column.SortMemberPath == nameof(FileSearchResult.Filename) ? Visibility.Visible : Visibility.Collapsed;
+                column.Width = width;
+            }
+        }
+
+        private void gridFileResults_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            // Right-clicking anywhere on the column header row shows the column menu. The theme's headers only
+            // react to clicks on their text, so this is handled here rather than with a ContextMenu on each header.
+            if (FindAncestor<DataGridColumnHeadersPresenter>(e.OriginalSource as DependencyObject) != null)
+            {
+                var menu = (ContextMenu)gridFileResults.FindResource("fileColumnsContextMenu");
+                menu.PlacementTarget = gridFileResults;
+                menu.Placement = PlacementMode.MousePoint;
+                menu.IsOpen = true;
+                e.Handled = true;
+            }
+        }
+
+        private void fileColumnsContextMenu_Opened(object sender, RoutedEventArgs e)
+        {
+            var menu = (ContextMenu)sender;
+            menu.Items.Clear();
+
+            foreach (var column in gridFileResults.Columns.OrderBy(x => x.DisplayIndex))
+            {
+                var menuItem = new MenuItem
+                {
+                    Header = column.Header,
+                    IsCheckable = true,
+                    IsChecked = column.Visibility == Visibility.Visible,
+                    // The filename is always shown.
+                    IsEnabled = column.SortMemberPath != nameof(FileSearchResult.Filename),
+                };
+                menuItem.Click += (_, _) => column.Visibility = menuItem.IsChecked ? Visibility.Visible : Visibility.Collapsed;
+                menu.Items.Add(menuItem);
+            }
+        }
+
+        private static T? FindAncestor<T>(DependencyObject? element) where T : DependencyObject
+        {
+            while (element != null && element is not T)
+            {
+                element = element is Visual ? VisualTreeHelper.GetParent(element) : LogicalTreeHelper.GetParent(element);
+            }
+
+            return element as T;
         }
 
         // Restores a sort order saved as e.g. "Modified:Descending" or "Path:Ascending,Filename:Ascending".
@@ -322,6 +439,9 @@ namespace rg_gui
             SetConfigValue(config, "Recursive", (chkRecursive.IsChecked ?? DEFAULT_RECURSIVE).ToString());
             SetConfigValue(config, "RegularExpression", (chkRegularExpression.IsChecked ?? DEFAULT_REGULAREXPRESSION).ToString());
 
+            var dataGridLengthConverter = new DataGridLengthConverter();
+            SetConfigValue(config, "FileListColumns", string.Join(",", gridFileResults.Columns.OrderBy(x => x.DisplayIndex)
+                .Select(x => $"{x.SortMemberPath}:{x.Visibility == Visibility.Visible}:{dataGridLengthConverter.ConvertToInvariantString(x.Width)}")));
             SetConfigValue(config, "FileListSort", string.Join(",", gridFileResults.Items.SortDescriptions.Select(x => $"{x.PropertyName}:{x.Direction}")));
 
             SetConfigValue(config, "FileEncoding", ((ComboBoxItem)cmbEncoding.SelectedItem).Name);
@@ -343,6 +463,7 @@ namespace rg_gui
 
         private void OnFileAdded(object? sender, (string path, string filename) result)
         {
+            long? size = null;
             DateTime? modified = null;
             DateTime? created = null;
             try
@@ -350,6 +471,7 @@ namespace rg_gui
                 var fileInfo = new FileInfo(Path.Combine(result.path, result.filename));
                 if (fileInfo.Exists)
                 {
+                    size = fileInfo.Length;
                     modified = fileInfo.LastWriteTime;
                     created = fileInfo.CreationTime;
                 }
@@ -363,7 +485,7 @@ namespace rg_gui
                 // Ensure the same result won't be added multiple times.
                 if (!FileResultItems.Any(x => x.Path == result.path && x.Filename == result.filename))
                 {
-                    FileResultItems.Add(new FileSearchResult(result.path, result.filename, modified, created));
+                    FileResultItems.Add(new FileSearchResult(result.path, result.filename, size, modified, created));
                     txtFileListStatus.Text = $"Found {FileResultItems.Count} files.";
                 }
             });
@@ -371,6 +493,12 @@ namespace rg_gui
 
         private void gridFileResults_MouseDown(object? sender, MouseEventArgs e)
         {
+            // Right-clicking the column headers opens the column menu instead.
+            if (FindAncestor<DataGridColumnHeadersPresenter>(e.OriginalSource as DependencyObject) != null)
+            {
+                return;
+            }
+
             if ((e.RightButton == MouseButtonState.Pressed && !SystemParameters.SwapButtons) || (e.LeftButton == MouseButtonState.Pressed && SystemParameters.SwapButtons))
             {
                 var selectedFiles = new List<FileInfo>();
