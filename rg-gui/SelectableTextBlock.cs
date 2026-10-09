@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System;
 using System.Windows;
 using System.Windows.Documents;
+using System.Windows.Input;
 
 namespace rg_gui
 {
@@ -27,15 +28,25 @@ namespace rg_gui
             // Make this control focusable
             FocusableProperty.OverrideMetadata(typeof(SelectableTextBlock), new FrameworkPropertyMetadata(true));
 
+            // Show the text cursor before the TextEditor (which would otherwise provide it) is created.
+            CursorProperty.OverrideMetadata(typeof(SelectableTextBlock), new FrameworkPropertyMetadata(Cursors.IBeam));
+
             // Register class event handlers
             // (Type controlType, bool acceptsRichContent, bool readOnly, bool registerEventListeners)
             TextEditorRegisterCommandHandlersMethod.Invoke(null, new object[] { typeof(SelectableTextBlock), false, true, true });
         }
 
-        private readonly object _textEditor;
+        private object? _textEditor;
 
-        public SelectableTextBlock()
+        // Creating the TextEditor is expensive and made scrolling long result lists stall, so it is only
+        // created when this text is clicked or focused, not for every line that scrolls into view or under the mouse.
+        private void EnsureTextEditor()
         {
+            if (_textEditor != null)
+            {
+                return;
+            }
+
             var textContainer = TextBlockTextContainer.GetValue(this);
 
             // Create TextEditor instance, assign the TextContainer to it.
@@ -48,6 +59,18 @@ namespace rg_gui
             TextEditorTextView.SetValue(_textEditor, textView);
         }
 
-        public bool HasSelectedText => TextEditorSelection?.GetValue(_textEditor) is TextRange { IsEmpty: false };
+        protected override void OnPreviewMouseDown(MouseButtonEventArgs e)
+        {
+            EnsureTextEditor();
+            base.OnPreviewMouseDown(e);
+        }
+
+        protected override void OnGotKeyboardFocus(KeyboardFocusChangedEventArgs e)
+        {
+            EnsureTextEditor();
+            base.OnGotKeyboardFocus(e);
+        }
+
+        public bool HasSelectedText => _textEditor != null && TextEditorSelection?.GetValue(_textEditor) is TextRange { IsEmpty: false };
     }
 }
