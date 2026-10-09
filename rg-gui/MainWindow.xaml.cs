@@ -60,7 +60,7 @@ namespace rg_gui
 
         private int m_maxSearchTerms;
 
-        private const ThemeType DEFAULT_THEME = ThemeType.Light;
+        private const ThemeType DEFAULT_THEME = ThemeType.Dark;
         private ThemeType m_currentTheme;
 
         private const bool DEFAULT_MULTIPLEHIGHLIGHTCOLORS = true;

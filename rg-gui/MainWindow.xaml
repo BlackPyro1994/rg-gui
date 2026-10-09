@@ -114,7 +114,7 @@
                     </ContextMenu>
                 </DataGrid.Resources>
                 <DataGrid.RowStyle>
-                    <Style TargetType="DataGridRow">
+                    <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
                         <Style.Setters>
                             <EventSetter Event="PreviewMouseRightButtonDown" Handler="grid_PreviewMouseRightButtonDown"/>
                             <EventSetter Event="Control.RequestBringIntoView" Handler="grid_RequestBringIntoViewHandler"/>
