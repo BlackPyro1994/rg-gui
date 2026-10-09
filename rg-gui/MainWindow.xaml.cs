@@ -180,6 +180,8 @@ namespace rg_gui
         {
             InitializeComponent();
 
+            gridFileResults.AddHandler(MouseRightButtonUpEvent, new MouseButtonEventHandler(gridFileResults_MouseRightButtonUp), handledEventsToo: true);
+
             var config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
             Left = double.TryParse(config.AppSettings.Settings["MainWindowLeft"]?.Value, out var left) ? left : DEFAULT_MAINWINDOW_LEFT;
             Top = double.TryParse(config.AppSettings.Settings["MainWindowTop"]?.Value, out var top) ? top : DEFAULT_MAINWINDOW_TOP;
@@ -312,17 +314,46 @@ namespace rg_gui
             }
         }
 
+        // Registered for handled events too, because the rows handle right-clicks themselves.
         private void gridFileResults_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
         {
+            var source = e.OriginalSource as DependencyObject;
+
             // Right-clicking anywhere on the column header row shows the column menu. The theme's headers only
             // react to clicks on their text, so this is handled here rather than with a ContextMenu on each header.
-            if (FindAncestor<DataGridColumnHeadersPresenter>(e.OriginalSource as DependencyObject) != null)
+            if (FindAncestor<DataGridColumnHeadersPresenter>(source) != null)
             {
                 var menu = (ContextMenu)gridFileResults.FindResource("fileColumnsContextMenu");
                 menu.PlacementTarget = gridFileResults;
                 menu.Placement = PlacementMode.MousePoint;
                 menu.IsOpen = true;
                 e.Handled = true;
+                return;
+            }
+
+            // Leave the scroll bars' own menu alone.
+            if (FindAncestor<ScrollBar>(source) != null)
+            {
+                return;
+            }
+
+            // Like Explorer, right-clicking a file that isn't selected selects just that file.
+            if (FindAncestor<DataGridRow>(source) is { IsSelected: false } row)
+            {
+                gridFileResults.SelectedItem = row.Item;
+            }
+
+            var selectedFiles = gridFileResults.SelectedItems.OfType<FileSearchResult>()
+                .Select(x => new FileInfo(Path.Combine(x.Path, x.Filename)))
+                .ToList();
+
+            if (selectedFiles.Any())
+            {
+                e.Handled = true;
+
+                var point = PointToScreen(e.GetPosition(this));
+                var shellContextMenu = new ShellContextMenu();
+                shellContextMenu.ShowContextMenu(selectedFiles, new System.Drawing.Point((int)point.X, (int)point.Y));
             }
         }
 
@@ -489,36 +520,6 @@ namespace rg_gui
                     txtFileListStatus.Text = $"Found {FileResultItems.Count} files.";
                 }
             });
-        }
-
-        private void gridFileResults_MouseDown(object? sender, MouseEventArgs e)
-        {
-            // Right-clicking the column headers opens the column menu instead.
-            if (FindAncestor<DataGridColumnHeadersPresenter>(e.OriginalSource as DependencyObject) != null)
-            {
-                return;
-            }
-
-            if ((e.RightButton == MouseButtonState.Pressed && !SystemParameters.SwapButtons) || (e.LeftButton == MouseButtonState.Pressed && SystemParameters.SwapButtons))
-            {
-                var selectedFiles = new List<FileInfo>();
-
-                foreach (var selectedItem in gridFileResults.SelectedItems)
-                {
-                    if (selectedItem is FileSearchResult fileSearchResult)
-                    {
-                        selectedFiles.Add(new FileInfo(Path.Combine(fileSearchResult.Path, fileSearchResult.Filename)));
-                    }
-                }
-
-                if (selectedFiles.Any())
-                {
-                    var point = PointToScreen(e.MouseDevice.GetPosition(this));
-
-                    var shellContextMenu = new ShellContextMenu();
-                    shellContextMenu.ShowContextMenu(selectedFiles, new System.Drawing.Point((int)point.X, (int)point.Y));
-                }
-            }
         }
 
         private void gridFileResults_Sorting(object sender, DataGridSortingEventArgs e)
