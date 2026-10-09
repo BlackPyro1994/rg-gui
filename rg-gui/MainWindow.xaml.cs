@@ -153,7 +153,8 @@ namespace rg_gui
             Top = double.TryParse(config.AppSettings.Settings["MainWindowTop"]?.Value, out var top) ? top : DEFAULT_MAINWINDOW_TOP;
             Width = double.TryParse(config.AppSettings.Settings["MainWindowWidth"]?.Value, out var width) ? width : DEFAULT_MAINWINDOW_WIDTH;
             Height = double.TryParse(config.AppSettings.Settings["MainWindowHeight"]?.Value, out var height) ? height : DEFAULT_MAINWINDOW_HEIGHT;
-            WindowState = int.TryParse(config.AppSettings.Settings["MainWindowState"]?.Value, out var windowState) ? WindowState : DEFAULT_MAINWINDOW_STATE;
+            // Only restore maximized; never start minimized.
+            WindowState = int.TryParse(config.AppSettings.Settings["MainWindowState"]?.Value, out var windowState) && windowState == (int)WindowState.Maximized ? WindowState.Maximized : (WindowState)DEFAULT_MAINWINDOW_STATE;
 
             txtBasePath.Text = basePath ?? config.AppSettings.Settings["BasePath"]?.Value ?? DEFAULT_BASEPATH;
             txtIncludeFiles.Text = includeFiles ?? config.AppSettings.Settings["IncludeFiles"]?.Value ?? DEFAULT_INCLUDEFILES;
@@ -285,10 +286,12 @@ namespace rg_gui
             var config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
             if (WindowState != WindowState.Minimized)
             {
-                SetConfigValue(config, "MainWindowLeft", Left.ToString());
-                SetConfigValue(config, "MainWindowTop", Top.ToString());
-                SetConfigValue(config, "MainWindowWidth", Width.ToString());
-                SetConfigValue(config, "MainWindowHeight", Height.ToString());
+                // When maximized, save the normal size and position so un-maximizing restores them.
+                var bounds = WindowState == WindowState.Maximized && !RestoreBounds.IsEmpty ? RestoreBounds : new Rect(Left, Top, Width, Height);
+                SetConfigValue(config, "MainWindowLeft", bounds.Left.ToString());
+                SetConfigValue(config, "MainWindowTop", bounds.Top.ToString());
+                SetConfigValue(config, "MainWindowWidth", bounds.Width.ToString());
+                SetConfigValue(config, "MainWindowHeight", bounds.Height.ToString());
                 SetConfigValue(config, "MainWindowState", ((int)WindowState).ToString());
 
                 var gridLengthConverter = new GridLengthConverter();
