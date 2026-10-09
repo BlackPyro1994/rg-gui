@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using static rg_gui.RipGrepWrapper;
@@ -185,6 +186,12 @@ namespace rg_gui
                 }
             }
 
+            var fileListSort = config.AppSettings.Settings["FileListSort"]?.Value;
+            if (!string.IsNullOrWhiteSpace(fileListSort))
+            {
+                RestoreFileListSort(fileListSort);
+            }
+
             var fileEncoding = cmbEncoding.FindName(config.AppSettings.Settings["FileEncoding"]?.Value ?? DEFAULT_FILEENCODING);
             if (fileEncoding != null)
             {
@@ -229,6 +236,36 @@ namespace rg_gui
 
             m_fileViewerPath = config.AppSettings.Settings["FileViewerPath"]?.Value ?? string.Empty;
             m_fileViewerArgs = config.AppSettings.Settings["FileViewerArgs"]?.Value ?? string.Empty;
+        }
+
+        // Restores a sort order saved as e.g. "Modified:Descending" or "Path:Ascending,Filename:Ascending".
+        private void RestoreFileListSort(string fileListSort)
+        {
+            var sortDescriptions = new List<SortDescription>();
+            foreach (var item in fileListSort.Split(','))
+            {
+                var parts = item.Split(':');
+                if (parts.Length != 2 || !Enum.TryParse<ListSortDirection>(parts[1], out var direction) || !gridFileResults.Columns.Any(x => x.SortMemberPath == parts[0]))
+                {
+                    // Keep the default sort order if the setting isn't valid.
+                    return;
+                }
+
+                sortDescriptions.Add(new SortDescription(parts[0], direction));
+            }
+
+            var collectionViewSource = (CollectionViewSource)FindResource("FileResultItemsCollectionViewSource");
+            collectionViewSource.SortDescriptions.Clear();
+            foreach (var sortDescription in sortDescriptions)
+            {
+                collectionViewSource.SortDescriptions.Add(sortDescription);
+            }
+
+            // The column sort directions decide which way the next header click sorts.
+            foreach (var column in gridFileResults.Columns)
+            {
+                column.SortDirection = sortDescriptions.Where(x => x.PropertyName == column.SortMemberPath).Select(x => (ListSortDirection?)x.Direction).FirstOrDefault();
+            }
         }
 
         private static void SetConfigValue(Configuration config, string key, string value)
@@ -281,6 +318,8 @@ namespace rg_gui
             SetConfigValue(config, "CaseSensitive", (chkCaseSensitive.IsChecked ?? DEFAULT_CASESENSITIVE).ToString());
             SetConfigValue(config, "Recursive", (chkRecursive.IsChecked ?? DEFAULT_RECURSIVE).ToString());
             SetConfigValue(config, "RegularExpression", (chkRegularExpression.IsChecked ?? DEFAULT_REGULAREXPRESSION).ToString());
+
+            SetConfigValue(config, "FileListSort", string.Join(",", gridFileResults.Items.SortDescriptions.Select(x => $"{x.PropertyName}:{x.Direction}")));
 
             SetConfigValue(config, "FileEncoding", ((ComboBoxItem)cmbEncoding.SelectedItem).Name);
             SetConfigValue(config, "MaxFileSize", txtMaxFileSize.Text);
