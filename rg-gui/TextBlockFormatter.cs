@@ -53,6 +53,12 @@ namespace rg_gui
             textBlock.Inlines.Add(new Run(UnescapeString(value.Substring(startingIndex))));
         }
 
+        // Returns the text without highlight markup, as it appears on screen.
+        public static string GetPlainText(string value)
+        {
+            return UnescapeString(Regex.Replace(value, @"</?c\d>", string.Empty));
+        }
+
         private static string UnescapeString(string source)
         {
             return source.Replace("&lt;", "<").Replace("&gt;", ">").Replace("&amp;", "&");

@@ -2,6 +2,7 @@
 using System.Windows.Controls;
 using System;
 using System.Windows;
+using System.Windows.Documents;
 
 namespace rg_gui
 {
@@ -13,6 +14,7 @@ namespace rg_gui
         private static readonly Type TextEditorType = Type.GetType("System.Windows.Documents.TextEditor, PresentationFramework, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35");
         private static readonly PropertyInfo TextEditorIsReadOnly = TextEditorType.GetProperty("IsReadOnly", BindingFlags.Instance | BindingFlags.NonPublic);
         private static readonly PropertyInfo TextEditorTextView = TextEditorType.GetProperty("TextView", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly PropertyInfo TextEditorSelection = TextEditorType.GetProperty("Selection", BindingFlags.Instance | BindingFlags.NonPublic);
         private static readonly MethodInfo TextEditorRegisterCommandHandlersMethod = TextEditorType.GetMethod("RegisterCommandHandlers", BindingFlags.Static | BindingFlags.NonPublic, null, new[] { typeof(Type), typeof(bool), typeof(bool), typeof(bool) }, null);
 
         private static readonly Type TextContainerType = Type.GetType("System.Windows.Documents.ITextContainer, PresentationFramework, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35");
@@ -45,5 +47,7 @@ namespace rg_gui
             TextEditorIsReadOnly.SetValue(_textEditor, true);
             TextEditorTextView.SetValue(_textEditor, textView);
         }
+
+        public bool HasSelectedText => TextEditorSelection?.GetValue(_textEditor) is TextRange { IsEmpty: false };
     }
 }

@@ -522,6 +522,49 @@ namespace rg_gui
             OpenFileViewer();
         }
 
+        private void gridResultLines_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key != Key.C || Keyboard.Modifiers != ModifierKeys.Control)
+            {
+                return;
+            }
+
+            if (gridResultLines.SelectedItems.Count == 0)
+            {
+                return;
+            }
+
+            // If part of a single line's text is selected, let the text block copy just that part.
+            // With several lines selected, always copy whole lines (shift-clicking on text also starts a text selection).
+            if (gridResultLines.SelectedItems.Count == 1 && e.OriginalSource is SelectableTextBlock { HasSelectedText: true })
+            {
+                return;
+            }
+
+            e.Handled = true;
+
+            // Copy the text of the selected lines in display order, without line numbers or separators.
+            var selectedLines = gridResultLines.SelectedItems.OfType<ResultLine>().ToHashSet();
+            var text = string.Join(Environment.NewLine, gridResultLines.Items.OfType<ResultLine>()
+                .Where(x => selectedLines.Contains(x) && !x.IsSeparator)
+                .Select(x => TextBlockFormatter.GetPlainText(x.Content)));
+
+            if (text.Length == 0)
+            {
+                return;
+            }
+
+            try
+            {
+                Clipboard.SetText(text);
+            }
+            catch (Exception)
+            {
+                // The clipboard can be locked by another program.
+                txtResultLineStatus.Text = "Could not copy to the clipboard. Please try again.";
+            }
+        }
+
         private void grid_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
         {
             if (sender is DataGridRow row)

@@ -107,7 +107,7 @@
                 </DataGrid.Columns>
             </DataGrid>
             <GridSplitter Grid.Row="0" Grid.Column="1" Width="5" ResizeBehavior="PreviousAndNext" BorderThickness="0,1,0,0" BorderBrush="#FF688CAF"/>
-            <DataGrid Grid.Row="0" Grid.Column="2" x:Name="gridResultLines" ItemsSource="{Binding Source={StaticResource ResultLineItemsCollectionViewSource}}" AutoGenerateColumns="False" GridLinesVisibility="None" BorderThickness="1,1,1,0" CanUserDeleteRows="False" SelectionUnit="FullRow" ContextMenuOpening="gridResultLines_ContextMenuOpening">
+            <DataGrid Grid.Row="0" Grid.Column="2" x:Name="gridResultLines" ItemsSource="{Binding Source={StaticResource ResultLineItemsCollectionViewSource}}" AutoGenerateColumns="False" GridLinesVisibility="None" BorderThickness="1,1,1,0" CanUserDeleteRows="False" SelectionUnit="FullRow" ContextMenuOpening="gridResultLines_ContextMenuOpening" PreviewKeyDown="gridResultLines_PreviewKeyDown">
                 <DataGrid.Resources>
                     <ContextMenu x:Key="lineContextMenu">
                         <MenuItem Header="Open in File Viewer" Click="openInFileViewer_Click" InputGestureText="F3"/>
