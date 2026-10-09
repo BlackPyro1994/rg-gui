@@ -98,9 +98,11 @@
                 <ColumnDefinition Width="5"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            <DataGrid Grid.Row="0" Grid.Column="0" x:Name="gridFileResults" ItemsSource="{Binding Source={StaticResource FileResultItemsCollectionViewSource}}" AutoGenerateColumns="False" MouseDown="gridFileResults_MouseDown" SelectionChanged="gridFileResults_SelectionChanged" GridLinesVisibility="None" BorderThickness="1,1,1,0" CanUserDeleteRows="False">
+            <DataGrid Grid.Row="0" Grid.Column="0" x:Name="gridFileResults" ItemsSource="{Binding Source={StaticResource FileResultItemsCollectionViewSource}}" AutoGenerateColumns="False" MouseDown="gridFileResults_MouseDown" SelectionChanged="gridFileResults_SelectionChanged" Sorting="gridFileResults_Sorting" GridLinesVisibility="None" BorderThickness="1,1,1,0" CanUserDeleteRows="False">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Filename" Binding="{Binding Filename, Mode=OneWay}" SortDirection="Ascending"/>
+                    <DataGridTextColumn Header="Modified" Binding="{Binding Modified, Mode=OneWay, StringFormat='yyyy-MM-dd HH:mm'}"/>
+                    <DataGridTextColumn Header="Created" Binding="{Binding Created, Mode=OneWay, StringFormat='yyyy-MM-dd HH:mm'}"/>
                     <DataGridTextColumn Header="Path" Binding="{Binding Path, Mode=OneWay}" SortDirection="Ascending"/>
                 </DataGrid.Columns>
             </DataGrid>

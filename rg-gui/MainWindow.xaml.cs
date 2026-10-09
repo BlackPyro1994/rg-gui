@@ -3,6 +3,7 @@ using Ookii.Dialogs.Wpf;
 using Peter;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Configuration;
 using System.Diagnostics;
 using System.IO;
@@ -83,10 +84,17 @@ namespace rg_gui
 
             public string Filename { get; }
 
-            public FileSearchResult(string path, string filename)
+            // Null if the file's dates couldn't be read.
+            public DateTime? Modified { get; }
+
+            public DateTime? Created { get; }
+
+            public FileSearchResult(string path, string filename, DateTime? modified = null, DateTime? created = null)
             {
                 Path = path;
                 Filename = filename;
+                Modified = modified;
+                Created = created;
             }
         }
 
@@ -292,12 +300,27 @@ namespace rg_gui
 
         private void OnFileAdded(object? sender, (string path, string filename) result)
         {
+            DateTime? modified = null;
+            DateTime? created = null;
+            try
+            {
+                var fileInfo = new FileInfo(Path.Combine(result.path, result.filename));
+                if (fileInfo.Exists)
+                {
+                    modified = fileInfo.LastWriteTime;
+                    created = fileInfo.CreationTime;
+                }
+            }
+            catch (Exception)
+            {
+            }
+
             Application.Current.Dispatcher.Invoke(delegate
             {
                 // Ensure the same result won't be added multiple times.
                 if (!FileResultItems.Any(x => x.Path == result.path && x.Filename == result.filename))
                 {
-                    FileResultItems.Add(new FileSearchResult(result.path, result.filename));
+                    FileResultItems.Add(new FileSearchResult(result.path, result.filename, modified, created));
                     txtFileListStatus.Text = $"Found {FileResultItems.Count} files.";
                 }
             });
@@ -324,6 +347,16 @@ namespace rg_gui
                     var shellContextMenu = new ShellContextMenu();
                     shellContextMenu.ShowContextMenu(selectedFiles, new System.Drawing.Point((int)point.X, (int)point.Y));
                 }
+            }
+        }
+
+        private void gridFileResults_Sorting(object sender, DataGridSortingEventArgs e)
+        {
+            // Like Explorer, the first click on a date column shows the newest files first.
+            // The DataGrid reverses the current direction, so mark it ascending to get descending.
+            if (e.Column.SortDirection == null && (e.Column.SortMemberPath == nameof(FileSearchResult.Modified) || e.Column.SortMemberPath == nameof(FileSearchResult.Created)))
+            {
+                e.Column.SortDirection = ListSortDirection.Ascending;
             }
         }
 
