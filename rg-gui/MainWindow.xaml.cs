@@ -10,6 +10,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -91,18 +92,43 @@ namespace rg_gui
 
         public class ResultLine
         {
-            public int Line { get; }
+            // Null for separator rows.
+            public int? Line { get; }
 
             public string Content { get; }
 
-            public ResultLine(int line, string content)
+            // Context lines (and separators) are shown dimmed and without highlighting.
+            public bool IsContext { get; }
+
+            public bool IsSeparator => Line == null;
+
+            // Separator rows sort between the blocks they separate.
+            public double SortKey { get; }
+
+            public ResultLine(int line, string content, bool isContext = false)
             {
                 Line = line;
                 Content = content;
+                IsContext = isContext;
+                SortKey = line;
             }
+
+            private ResultLine(double sortKey)
+            {
+                Content = "…";
+                IsContext = true;
+                SortKey = sortKey;
+            }
+
+            public static ResultLine Separator(double sortKey) => new(sortKey);
         }
 
         private CancellationTokenSource? m_cancellationTokenSource;
+
+        // Incremented whenever the result lines are replaced, so a slow file read can tell it's out of date.
+        private int m_resultLinesVersion;
+
+        private FileEncoding m_searchEncoding = FileEncoding.Auto;
 
         private readonly RipGrepWrapper m_ripGrepWrapper;
 
@@ -307,21 +333,110 @@ namespace rg_gui
             {
                 if (e.AddedItems[0] is FileSearchResult addedItem)
                 {
-                    // Scroll gridResultLines back to left end.
-                    GetScrollViewer(gridResultLines)?.ScrollToLeftEnd();
-
-                    ResultLineItems.Reset(Enumerable.Empty<ResultLine>());
-
-                    var lineResults = m_ripGrepWrapper.FileResults.Where(x => x.Key.path == addedItem.Path && x.Key.filename == addedItem.Filename);
-
-                    foreach (var lineResult in lineResults)
-                    {
-                        ResultLineItems.Add(new ResultLine(lineResult.Key.lineNumber, GetColorizedString(lineResult.Value.LineContent, lineResult.Value.TermResults).Trim()));
-                    }
-
-                    txtResultLineStatus.Text = $"{ResultLineItems.Count} lines matched.";
+                    ShowResultLines(addedItem);
                 }
             }
+        }
+
+        private async void ShowResultLines(FileSearchResult file)
+        {
+            // Scroll gridResultLines back to left end.
+            GetScrollViewer(gridResultLines)?.ScrollToLeftEnd();
+
+            ResultLineItems.Reset(Enumerable.Empty<ResultLine>());
+            var version = ++m_resultLinesVersion;
+
+            var lineResults = m_ripGrepWrapper.FileResults.Where(x => x.Key.path == file.Path && x.Key.filename == file.Filename)
+                .Select(x => (lineNumber: x.Key.lineNumber, lineResult: x.Value))
+                .OrderBy(x => x.lineNumber)
+                .ToList();
+
+            if (m_contextLinesBefore == 0 && m_contextLinesAfter == 0)
+            {
+                foreach (var lineResult in lineResults)
+                {
+                    ResultLineItems.Add(new ResultLine(lineResult.lineNumber, GetColorizedString(lineResult.lineResult.LineContent, lineResult.lineResult.TermResults).Trim()));
+                }
+
+                txtResultLineStatus.Text = $"{ResultLineItems.Count} lines matched.";
+                return;
+            }
+
+            txtResultLineStatus.Text = "Loading...";
+
+            var filePath = Path.Combine(file.Path, file.Filename);
+            var linesBefore = m_contextLinesBefore;
+            var linesAfter = m_contextLinesAfter;
+            var useGbk = m_searchEncoding == FileEncoding.GBK;
+
+            List<ResultLine> rows;
+            string? error;
+            try
+            {
+                (rows, error) = await Task.Run(() => GetResultLinesWithContext(filePath, lineResults, linesBefore, linesAfter, useGbk));
+            }
+            catch (Exception)
+            {
+                (rows, error) = (GetResultLinesWithoutContext(lineResults), "unexpected error");
+            }
+
+            // Another file was selected (or a new search started) while this one was loading.
+            if (version != m_resultLinesVersion)
+            {
+                return;
+            }
+
+            ResultLineItems.Reset(rows);
+
+            txtResultLineStatus.Text = error == null
+                ? $"{lineResults.Count} lines matched."
+                : $"{lineResults.Count} lines matched. No context lines: {error}.";
+        }
+
+        private (List<ResultLine> rows, string? error) GetResultLinesWithContext(string filePath, List<(int lineNumber, LineResult lineResult)> lineResults, int linesBefore, int linesAfter, bool useGbk)
+        {
+            var (lines, error) = ContextLineReader.ReadLines(filePath, useGbk);
+
+            if (lines != null && !ContextLineReader.MatchesFile(lines, lineResults.Select(x => (x.lineNumber, x.lineResult.LineContent))))
+            {
+                (lines, error) = (null, "file has changed since the search");
+            }
+
+            if (lines == null)
+            {
+                return (GetResultLinesWithoutContext(lineResults), error);
+            }
+
+            var matches = lineResults.ToDictionary(x => x.lineNumber, x => x.lineResult);
+            var rows = new List<ResultLine>();
+
+            foreach (var (start, end) in ContextLineReader.GetBlocks(matches.Keys, linesBefore, linesAfter, lines.Length))
+            {
+                if (rows.Count > 0)
+                {
+                    rows.Add(ResultLine.Separator(start - 0.5));
+                }
+
+                for (var line = start; line <= end; line++)
+                {
+                    // Only trim the end, so indentation lines up between match and context rows.
+                    if (matches.TryGetValue(line, out var lineResult))
+                    {
+                        rows.Add(new ResultLine(line, GetColorizedString(lineResult.LineContent, lineResult.TermResults).TrimEnd()));
+                    }
+                    else
+                    {
+                        rows.Add(new ResultLine(line, EscapeString(lines[line - 1].TrimEnd()), isContext: true));
+                    }
+                }
+            }
+
+            return (rows, null);
+        }
+
+        private List<ResultLine> GetResultLinesWithoutContext(List<(int lineNumber, LineResult lineResult)> lineResults)
+        {
+            return lineResults.Select(x => new ResultLine(x.lineNumber, GetColorizedString(x.lineResult.LineContent, x.lineResult.TermResults).Trim())).ToList();
         }
 
         private void grid_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -351,6 +466,12 @@ namespace rg_gui
         private void gridResultLines_ContextMenuOpening(object sender, ContextMenuEventArgs e)
         {
             if (string.IsNullOrEmpty(m_fileViewerPath) || string.IsNullOrEmpty(m_fileViewerArgs))
+            {
+                e.Handled = true;
+            }
+
+            // Separator rows have no line to open.
+            if (gridResultLines.SelectedItems.Count > 0 && gridResultLines.SelectedItems[gridResultLines.SelectedItems.Count - 1] is ResultLine { IsSeparator: true })
             {
                 e.Handled = true;
             }
@@ -421,6 +542,7 @@ namespace rg_gui
             m_cancellationTokenSource = cancellationTokenSource;
 
             ResultLineItems.Reset(Enumerable.Empty<ResultLine>());
+            m_resultLinesVersion++;
             txtFileListStatus.Text = string.Empty;
             txtResultLineStatus.Text = string.Empty;
 
@@ -449,6 +571,9 @@ namespace rg_gui
                 };
 
                 FileResultItems.Reset(Enumerable.Empty<FileSearchResult>());
+
+                // Context lines are read with the encoding used for the search.
+                m_searchEncoding = searchParameters.Encoding;
 
                 await m_ripGrepWrapper.Search(searchParameters, cancellationTokenSource.Token);
             }
@@ -512,6 +637,12 @@ namespace rg_gui
                 m_contextLinesAfter = settingsWindow.ContextLinesAfter;
                 m_fileViewerPath = settingsWindow.FileViewerPath;
                 m_fileViewerArgs = settingsWindow.FileViewerArgs;
+
+                // Redisplay the selected file so new settings take effect right away.
+                if (gridFileResults.SelectedItem is FileSearchResult selectedFile)
+                {
+                    ShowResultLines(selectedFile);
+                }
             }
         }
 
@@ -651,7 +782,7 @@ namespace rg_gui
 
             var resultFile = gridFileResults.SelectedItems[gridFileResults.SelectedItems.Count - 1] as FileSearchResult;
             var resultLine = gridResultLines.SelectedItems[gridResultLines.SelectedItems.Count - 1] as ResultLine;
-            if (resultFile == null || resultLine == null)
+            if (resultFile == null || resultLine == null || resultLine.IsSeparator)
             {
                 return;
             }

@@ -20,7 +20,7 @@
 
         <CollectionViewSource x:Key="ResultLineItemsCollectionViewSource" Source="{Binding ResultLineItems}">
             <CollectionViewSource.SortDescriptions>
-                <scm:SortDescription PropertyName="Line" Direction="Ascending" />
+                <scm:SortDescription PropertyName="SortKey" Direction="Ascending" />
             </CollectionViewSource.SortDescriptions>
         </CollectionViewSource>
     </Window.Resources>
@@ -121,8 +121,17 @@
                         </Style.Setters>
                     </Style>
                 </DataGrid.RowStyle>
+                <DataGrid.CellStyle>
+                    <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsContext}" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource DataGrid.ContextLine.Foreground}"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.CellStyle>
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Line" Binding="{Binding Line, Mode=OneWay}" SortDirection="Ascending"/>
+                    <DataGridTextColumn Header="Line" Binding="{Binding Line, Mode=OneWay}" SortMemberPath="SortKey" SortDirection="Ascending"/>
                     <DataGridTemplateColumn Header="Content">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>

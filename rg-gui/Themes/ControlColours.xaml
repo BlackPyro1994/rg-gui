@@ -62,6 +62,7 @@
     <SolidColorBrush x:Key="DataGrid.CellItem.MouseOver.Background"           Color="{DynamicResource AColour.DataGrid.CellItem.MouseOver.Background}"/>
 
     <SolidColorBrush x:Key="DataGrid.TextHighlightBackground"                 Color="{DynamicResource AColour.DataGrid.TextHighlightBackground}"/>
+    <SolidColorBrush x:Key="DataGrid.ContextLine.Foreground"                  Color="{DynamicResource AColour.DataGrid.ContextLine.Foreground}"/>
 
     <SolidColorBrush x:Key="GridSplitter.Static.Background"                   Color="Transparent"/>
     <SolidColorBrush x:Key="GridSplitter.Static.Border"                       Color="{DynamicResource AColour.GridSplitter.Static.Border}"/>

@@ -65,6 +65,7 @@
     <Color x:Key="AColour.DataGrid.TextHighlightBackground1"                 R="0" G="127" B="0" A="255" />
     <Color x:Key="AColour.DataGrid.TextHighlightBackground2"                 R="127" G="127" B="0" A="255" />
     <Color x:Key="AColour.DataGrid.TextHighlightBackground3"                 R="127" G="0" B="127" A="255" />
+    <Color x:Key="AColour.DataGrid.ContextLine.Foreground"                   R="160" G="160" B="160" A="255" />
 
     <Color x:Key="AColour.FocusVisual.Border"                                R="0" G="122" B="204" A="255"/>
 
