@@ -98,7 +98,7 @@
                 <ColumnDefinition Width="5"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            <DataGrid Grid.Row="0" Grid.Column="0" x:Name="gridFileResults" ItemsSource="{Binding Source={StaticResource FileResultItemsCollectionViewSource}}" AutoGenerateColumns="False" SelectionChanged="gridFileResults_SelectionChanged" Sorting="gridFileResults_Sorting" GridLinesVisibility="None" BorderThickness="1,1,1,0" CanUserDeleteRows="False">
+            <DataGrid Grid.Row="0" Grid.Column="0" x:Name="gridFileResults" ItemsSource="{Binding Source={StaticResource FileResultItemsCollectionViewSource}}" AutoGenerateColumns="False" VirtualizingPanel.VirtualizationMode="Recycling" SelectionChanged="gridFileResults_SelectionChanged" Sorting="gridFileResults_Sorting" GridLinesVisibility="None" BorderThickness="1,1,1,0" CanUserDeleteRows="False">
                 <DataGrid.Resources>
                     <ContextMenu x:Key="fileColumnsContextMenu" Opened="fileColumnsContextMenu_Opened"/>
                 </DataGrid.Resources>
