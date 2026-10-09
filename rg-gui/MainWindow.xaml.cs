@@ -160,6 +160,7 @@ namespace rg_gui
             txtContainingText.Text = containingText ?? config.AppSettings.Settings["ContainingText"]?.Value ?? DEFAULT_CONTAININGTEXT;
             chkCaseSensitive.IsChecked = bool.TryParse(config.AppSettings.Settings["CaseSensitive"]?.Value, out var caseSensitive) ? caseSensitive : DEFAULT_CASESENSITIVE;
             chkRecursive.IsChecked = bool.TryParse(config.AppSettings.Settings["Recursive"]?.Value, out var recursive) ? recursive : DEFAULT_RECURSIVE;
+            chkRegularExpression.IsChecked = bool.TryParse(config.AppSettings.Settings["RegularExpression"]?.Value, out var regularExpression) ? regularExpression : DEFAULT_REGULAREXPRESSION;
 
             var gridFileResultsWidthStr = config.AppSettings.Settings["GridFileResultsWidth"]?.Value;
             var gridSplitterWidthStr = config.AppSettings.Settings["GridSplitterWidth"]?.Value;
